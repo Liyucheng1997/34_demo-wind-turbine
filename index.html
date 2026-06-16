@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>风力发电机交互演示 · Three.js</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- 3D 画布挂载点 -->
+  <div id="app"></div>
+
+  <!-- 左上：标题与说明 -->
+  <header id="title">
+    <h1>🌬️ 风力发电机原理演示</h1>
+    <p>拖动旋转视角 · 滚轮缩放 · 调节右侧风速/风向观察偏航与发电</p>
+  </header>
+
+  <!-- 右上：控制面板 -->
+  <section id="controls" class="panel">
+    <h2>控制台</h2>
+
+    <label class="ctl">
+      <span>风速 <b id="windSpeedVal">8.0</b> m/s</span>
+      <input id="windSpeed" type="range" min="0" max="30" step="0.1" value="8" />
+      <small id="windStage" class="stage">正常发电区</small>
+    </label>
+
+    <label class="ctl">
+      <span>风向 <b id="windDirVal">0</b>°</span>
+      <input id="windDir" type="range" min="0" max="360" step="1" value="0" />
+    </label>
+
+    <label class="ctl checkbox">
+      <input id="autoYaw" type="checkbox" checked />
+      <span>自动偏航对风 (Yaw)</span>
+    </label>
+
+    <label class="ctl checkbox">
+      <input id="autoWind" type="checkbox" />
+      <span>自动变化风向（阵风模拟）</span>
+    </label>
+
+    <div class="presets">
+      <button data-v="2">微风</button>
+      <button data-v="8">正常</button>
+      <button data-v="12">额定</button>
+      <button data-v="27">大风停机</button>
+    </div>
+  </section>
+
+  <!-- 右下：发电数据仪表盘 -->
+  <section id="dashboard" class="panel">
+    <h2>⚡ 发电数据</h2>
+    <div class="readout">
+      <div class="metric">
+        <span class="k">瞬时功率</span>
+        <span class="v"><b id="power">0</b> kW</span>
+      </div>
+      <div class="metric">
+        <span class="k">理论风功率</span>
+        <span class="v"><b id="windPower">0</b> kW</span>
+      </div>
+      <div class="metric">
+        <span class="k">功率系数 Cp</span>
+        <span class="v"><b id="cp">0</b></span>
+      </div>
+      <div class="metric">
+        <span class="k">叶片转速</span>
+        <span class="v"><b id="rpm">0</b> rpm</span>
+      </div>
+    </div>
+
+    <!-- 功率条 -->
+    <div class="bar">
+      <div id="powerBar" class="bar-fill"></div>
+      <span class="bar-label">额定 <b id="ratedVal">3000</b> kW</span>
+    </div>
+
+    <!-- 等效家庭 -->
+    <div class="household">
+      <div class="hh-head">
+        <span>可供约 <b id="houses">0</b> 户家庭全年用电</span>
+      </div>
+      <div id="houseIcons" class="hh-icons"></div>
+      <small>按每户年用电 <b id="hhUseVal">3000</b> kWh 估算 · 年发电 <b id="annualMWh">0</b> MWh</small>
+    </div>
+  </section>
+
+  <!-- 左下：发电机原理可视化 -->
+  <section id="genPanel" class="panel">
+    <h2>🔌 发电机原理（机械能 → 电能）</h2>
+    <canvas id="genCanvas"></canvas>
+    <small class="gen-note">转子磁体随叶轮旋转 → 切割定子线圈磁场 →
+      <b>电磁感应</b>生出交流电 → 输往电网/家庭</small>
+  </section>
+
+  <!-- 状态角标 -->
+  <div id="status" class="status">初始化中…</div>
+
+  <!-- Three.js 通过 importmap 从 CDN 加载（ESM） -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

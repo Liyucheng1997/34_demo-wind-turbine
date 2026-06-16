@@ -1,0 +1,203 @@
+:root {
+  --bg: #0b1622;
+  --panel: rgba(16, 28, 42, 0.82);
+  --panel-border: rgba(120, 180, 240, 0.18);
+  --text: #e8f0f8;
+  --muted: #9bb0c4;
+  --accent: #46d6a0;
+  --accent2: #4aa8ff;
+  --warn: #ffb347;
+  --danger: #ff6b6b;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+#app { position: fixed; inset: 0; }
+#app canvas { display: block; }
+
+/* ---------- 通用面板 ---------- */
+.panel {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  width: 280px;
+  z-index: 10;
+}
+.panel h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+  color: var(--text);
+}
+
+/* ---------- 标题 ---------- */
+#title {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 10;
+  max-width: 360px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+#title h1 { font-size: 22px; margin-bottom: 6px; }
+#title p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+/* ---------- 控制台 ---------- */
+#controls { top: 18px; right: 18px; }
+
+.ctl { display: block; margin-bottom: 16px; }
+.ctl > span { display: block; font-size: 13px; margin-bottom: 6px; color: var(--muted); }
+.ctl b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+input[type="range"] {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--accent2);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.stage {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(70, 214, 160, 0.15);
+  color: var(--accent);
+}
+
+.ctl.checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.ctl.checkbox span { margin: 0; color: var(--text); font-size: 13px; }
+.ctl.checkbox input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+.presets { display: flex; gap: 6px; margin-top: 4px; }
+.presets button {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.presets button:hover { background: rgba(74, 168, 255, 0.25); }
+
+/* ---------- 仪表盘 ---------- */
+#dashboard { bottom: 18px; right: 18px; }
+
+.readout { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.metric { display: flex; flex-direction: column; }
+.metric .k { font-size: 11px; color: var(--muted); }
+.metric .v { font-size: 18px; font-variant-numeric: tabular-nums; }
+.metric .v b { color: var(--accent); }
+
+.bar {
+  position: relative;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 11px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  transition: width 0.25s ease;
+}
+.bar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.household .hh-head { font-size: 13px; margin-bottom: 8px; }
+.household .hh-head b { color: var(--warn); font-size: 16px; }
+.hh-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 8px;
+  min-height: 20px;
+  line-height: 1;
+}
+.hh-icons span { font-size: 15px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.4)); }
+.household small { font-size: 11px; color: var(--muted); }
+
+/* ---------- 发电机原理面板 ---------- */
+#genPanel { bottom: 18px; left: 18px; width: 300px; }
+#genCanvas {
+  width: 100%;
+  height: 220px;
+  display: block;
+  border-radius: 10px;
+  background: rgba(8, 16, 26, 0.55);
+}
+.gen-note {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.gen-note b { color: var(--accent); }
+
+/* ---------- 状态角标 ---------- */
+.status {
+  position: fixed;
+  top: 110px;
+  left: 18px;
+  z-index: 10;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+.status.ok { color: var(--accent); }
+.status.warn { color: var(--warn); }
+.status.danger { color: var(--danger); }
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 760px) {
+  .panel { width: calc(100vw - 36px); }
+  #controls { top: auto; bottom: 320px; }
+  #dashboard { bottom: 18px; }
+  #title { max-width: 60vw; }
+  #title h1 { font-size: 18px; }
+}
