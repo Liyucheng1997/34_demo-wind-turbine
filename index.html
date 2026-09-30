@@ -3,102 +3,214 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>风力发电机交互演示 · Three.js</title>
+  <title>NREL 5MW 风机数字孪生</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <!-- 3D 画布挂载点 -->
   <div id="app"></div>
 
-  <!-- 左上：标题与说明 -->
-  <header id="title">
-    <h1>🌬️ 风力发电机原理演示</h1>
-    <p>拖动旋转视角 · 滚轮缩放 · 调节右侧风速/风向观察偏航与发电</p>
+  <!-- 加载遮罩 -->
+  <div id="loading">
+    <div class="ld-box">
+      <div class="ld-spin"></div>
+      <b>正在初始化数字孪生</b>
+      <span id="ldMsg">求解叶素动量（BEM）气动表…</span>
+    </div>
+  </div>
+
+  <!-- 顶部标题 + 状态条 -->
+  <header id="topbar">
+    <div class="brand">
+      <h1>NREL 5 MW 参考风机 · 1:1 数字孪生</h1>
+      <p>叶轮 Ø126 m · 轮毂高 90 m · 额定 5 MW @ 11.4 m/s · 数据源 NREL/TP-500-38060</p>
+    </div>
+    <div class="chips">
+      <span id="chipMode" class="chip">—</span>
+      <span id="chipRegion" class="chip">区域 —</span>
+      <span id="chipWake" class="chip warn" hidden>处于尾流中</span>
+      <span id="chipClock" class="chip mono">t = 0 s</span>
+      <div class="seg" id="timeScale" title="仿真时间倍速">
+        <button data-s="0">⏸</button><button data-s="1" class="on">1×</button><button data-s="3">3×</button><button data-s="10">10×</button>
+      </div>
+      <button id="btnInfo" class="accent">工程解析</button>
+      <button id="btnHideUI" title="隐藏界面 (H)">隐藏界面</button>
+    </div>
   </header>
 
-  <!-- 右上：控制面板 -->
-  <section id="controls" class="panel">
-    <h2>控制台</h2>
+  <!-- 左侧：风况与环境 + 运行控制 -->
+  <aside id="left" class="panel">
+    <details open>
+      <summary>风况（IEC 61400-1）</summary>
+      <label class="ctl"><span>10 分钟平均轮毂风速 <b id="vVal">9.0</b> m/s</span>
+        <input id="vMean" type="range" min="0" max="32" step="0.1" value="9" /></label>
+      <div class="presets">
+        <button data-v="4">微风 4</button><button data-v="8">常风 8</button><button data-v="11.4">额定 11.4</button>
+        <button data-v="18">强风 18</button><button data-v="27">超切出 27</button>
+      </div>
+      <label class="ctl"><span>风向（来向）<b id="dirVal">270</b>° <i id="dirName">西风</i></span>
+        <input id="dir" type="range" min="0" max="359" step="1" value="270" /></label>
+      <label class="ctl check"><input id="dirDrift" type="checkbox" /> 风向缓慢漂移</label>
+      <label class="ctl"><span>湍流等级</span>
+        <select id="turb">
+          <option value="A">A 类 · Iref 0.16（复杂地形）</option>
+          <option value="B" selected>B 类 · Iref 0.14（本机型设计等级）</option>
+          <option value="C">C 类 · Iref 0.12（平坦/海上）</option>
+          <option value="L">层流（理想无湍流）</option>
+        </select></label>
+      <label class="ctl"><span>地表粗糙度（决定风切变）</span>
+        <select id="terrain">
+          <option value="sea">海面 z0 = 0.0002 m</option>
+          <option value="grass" selected>开阔草原 z0 = 0.03 m</option>
+          <option value="farm">农田 z0 = 0.1 m</option>
+          <option value="shrub">灌木/村庄 z0 = 0.4 m</option>
+          <option value="forest">森林/城郊 z0 = 1.0 m</option>
+        </select></label>
+      <div class="kv"><span>等效切变指数 α</span><b id="alphaVal">—</b></div>
+      <div class="kv"><span>湍流标准差 σ₁</span><b id="sigmaVal">—</b></div>
+      <button id="btnEOG" class="wide">触发 IEC 极端运行阵风（EOG）</button>
+    </details>
+    <details open>
+      <summary>大气与时间</summary>
+      <label class="ctl"><span>气温 <b id="tVal">15</b> ℃</span><input id="temp" type="range" min="-30" max="40" step="1" value="15" /></label>
+      <label class="ctl"><span>场址海拔 <b id="altVal">500</b> m</span><input id="alt" type="range" min="0" max="4500" step="50" value="500" /></label>
+      <label class="ctl"><span>相对湿度 <b id="rhVal">60</b>%</span><input id="rh" type="range" min="0" max="100" step="1" value="60" /></label>
+      <div class="kv"><span>空气密度 ρ</span><b id="rhoVal">—</b></div>
+      <label class="ctl"><span>当地时刻 <b id="hourVal">10:30</b>（41.5°N，7 月）</span><input id="hour" type="range" min="0" max="24" step="0.05" value="10.5" /></label>
+    </details>
+    <details open>
+      <summary>运行控制</summary>
+      <label class="ctl check"><input id="yawAuto" type="checkbox" checked /> 自动偏航对风（0.3°/s）</label>
+      <label class="ctl"><span>手动机舱朝向 <b id="yawVal">270</b>°</span><input id="yawManual" type="range" min="0" max="359" step="1" value="270" disabled /></label>
+      <div class="btnrow">
+        <button id="btnStop">正常停机</button>
+        <button id="btnEstop" class="danger">紧急停机</button>
+        <button id="btnReset">复位</button>
+      </div>
+    </details>
+  </aside>
 
-    <label class="ctl">
-      <span>风速 <b id="windSpeedVal">8.0</b> m/s</span>
-      <input id="windSpeed" type="range" min="0" max="30" step="0.1" value="8" />
-      <small id="windStage" class="stage">正常发电区</small>
-    </label>
-
-    <label class="ctl">
-      <span>风向 <b id="windDirVal">0</b>°</span>
-      <input id="windDir" type="range" min="0" max="360" step="1" value="0" />
-    </label>
-
-    <label class="ctl checkbox">
-      <input id="autoYaw" type="checkbox" checked />
-      <span>自动偏航对风 (Yaw)</span>
-    </label>
-
-    <label class="ctl checkbox">
-      <input id="autoWind" type="checkbox" />
-      <span>自动变化风向（阵风模拟）</span>
-    </label>
-
-    <div class="presets">
-      <button data-v="2">微风</button>
-      <button data-v="8">正常</button>
-      <button data-v="12">额定</button>
-      <button data-v="27">大风停机</button>
+  <!-- 右侧：SCADA 实时数据 -->
+  <aside id="right" class="panel">
+    <div class="p-head"><h2>SCADA 实时数据</h2><span class="sub">20 ms 步长动力学仿真</span></div>
+    <div class="hero">
+      <div><span class="k">并网电功率</span><span class="v"><b id="mP">0</b><i>MW</i></span></div>
+      <div class="bar"><div id="mPbar"></div><span>额定 5.0 MW</span></div>
     </div>
+    <div class="flow" id="energyFlow" title="能量流：风 → 贝兹极限 → 叶轮捕获 → 电网">
+      <div class="f-row"><span>来流风功率</span><div class="f-bar"><i id="efW"></i></div><b id="efWv">—</b></div>
+      <div class="f-row"><span>贝兹极限 59.3%</span><div class="f-bar"><i id="efB"></i></div><b id="efBv">—</b></div>
+      <div class="f-row"><span>叶轮气动功率</span><div class="f-bar"><i id="efA"></i></div><b id="efAv">—</b></div>
+      <div class="f-row"><span>并网电功率</span><div class="f-bar"><i id="efE"></i></div><b id="efEv">—</b></div>
+    </div>
+    <div class="grid" id="scada"></div>
+    <details class="aep" open>
+      <summary>年发电量评估（Rayleigh 分布）</summary>
+      <label class="ctl"><span>轮毂高度年平均风速 <b id="annVal">7.5</b> m/s</span><input id="annual" type="range" min="4" max="11" step="0.1" value="7.5" /></label>
+      <div class="grid g3">
+        <div><span class="k">年发电量</span><span class="v"><b id="aep">—</b> GWh</span></div>
+        <div><span class="k">容量系数</span><span class="v"><b id="cf">—</b></span></div>
+        <div><span class="k">等效满发</span><span class="v"><b id="flh">—</b> h</span></div>
+      </div>
+      <small class="note">≈ <b id="homes">—</b> 户城镇家庭全年用电（3000 kWh/户）。未扣除尾流、可利用率（约 97%）、电气损耗。</small>
+    </details>
+  </aside>
+
+  <!-- 底部：图表 -->
+  <section id="bottom" class="panel">
+    <div class="tabs" id="chartTabs">
+      <button data-t="ts" class="on">时序曲线</button>
+      <button data-t="pc">功率曲线</button>
+      <button data-t="span">叶片展向（BEM）</button>
+      <button data-t="cp">Cp–λ 曲线族</button>
+      <button data-t="camp">坎贝尔图</button>
+      <button data-t="farm">风电场尾流</button>
+      <button id="btnCollapse" class="collapse" title="折叠">▾</button>
+    </div>
+    <canvas id="chart"></canvas>
   </section>
 
-  <!-- 右下：发电数据仪表盘 -->
-  <section id="dashboard" class="panel">
-    <h2>⚡ 发电数据</h2>
-    <div class="readout">
-      <div class="metric">
-        <span class="k">瞬时功率</span>
-        <span class="v"><b id="power">0</b> kW</span>
-      </div>
-      <div class="metric">
-        <span class="k">理论风功率</span>
-        <span class="v"><b id="windPower">0</b> kW</span>
-      </div>
-      <div class="metric">
-        <span class="k">功率系数 Cp</span>
-        <span class="v"><b id="cp">0</b></span>
-      </div>
-      <div class="metric">
-        <span class="k">叶片转速</span>
-        <span class="v"><b id="rpm">0</b> rpm</span>
-      </div>
+  <!-- 视角/显示工具条 -->
+  <nav id="views">
+    <div class="seg" id="viewBtns">
+      <button data-v="overview" class="on">全景</button>
+      <button data-v="front">叶轮正面</button>
+      <button data-v="human">人眼视角</button>
+      <button data-v="nacelle">机舱</button>
+      <button data-v="cutaway">剖视传动链</button>
+      <button data-v="farm">风电场</button>
     </div>
-
-    <!-- 功率条 -->
-    <div class="bar">
-      <div id="powerBar" class="bar-fill"></div>
-      <span class="bar-label">额定 <b id="ratedVal">3000</b> kW</span>
+    <div class="toggles">
+      <label><input id="tgCut" type="checkbox" /> 剖视</label>
+      <label><input id="tgLabels" type="checkbox" /> 部件标注</label>
+      <label><input id="tgFlow" type="checkbox" checked /> 气流迹线</label>
+      <label><input id="tgProfile" type="checkbox" checked /> 风廓线</label>
     </div>
+  </nav>
 
-    <!-- 等效家庭 -->
-    <div class="household">
-      <div class="hh-head">
-        <span>可供约 <b id="houses">0</b> 户家庭全年用电</span>
-      </div>
-      <div id="houseIcons" class="hh-icons"></div>
-      <small>按每户年用电 <b id="hhUseVal">3000</b> kWh 估算 · 年发电 <b id="annualMWh">0</b> MWh</small>
+  <div id="tooltip" class="tooltip"></div>
+
+  <!-- 工程解析抽屉 -->
+  <div id="drawer" hidden>
+    <div class="dr-inner">
+      <button id="drClose" class="dr-close">×</button>
+      <h2>这不是玩具：一台 5 MW 风机的建模依据、难点与亮点</h2>
+      <p class="lead">场景中的每个尺寸、每条曲线都来自公开的工程数据，并由实时求解的物理模型驱动。下文说明“建了什么、怎么算的、难在哪、好在哪”。</p>
+
+      <h3>1. 建模对象与数据来源</h3>
+      <p>对象是 <b>NREL 5 MW 参考风机</b>（原型 REpower 5M）。它是风电学术界最通用的基准机型：美国国家可再生能源实验室在报告 <i>NREL/TP-500-38060</i>（Jonkman 等，2009）中公开了它的完整气动、结构、传动链和控制器参数，OpenFAST、HAWC2、Bladed 等工具都用它做对比算例。商业机型（金风、远景、Vestas 等）不公开叶片外形，因此“可核对的 1:1”只能基于这类参考机型。</p>
+      <table class="spec">
+        <tr><th>参数</th><th>数值</th><th>参数</th><th>数值</th></tr>
+        <tr><td>叶轮直径 / 轮毂直径</td><td>126 m / 3 m</td><td>轮毂高度（陆上）</td><td>90 m</td></tr>
+        <tr><td>切入 / 额定 / 切出风速</td><td>3 / 11.4 / 25 m/s</td><td>转速范围</td><td>6.9 – 12.1 rpm</td></tr>
+        <tr><td>额定叶尖速度</td><td>80 m/s</td><td>主轴仰角 / 叶片锥角</td><td>5° / 2.5°</td></tr>
+        <tr><td>悬伸 / 塔顶至主轴</td><td>5.019 m / 1.963 m</td><td>齿轮箱增速比</td><td>97 : 1</td></tr>
+        <tr><td>叶片质量</td><td>17 740 kg × 3</td><td>机舱 / 轮毂质量</td><td>240 t / 56.8 t</td></tr>
+        <tr><td>塔筒</td><td>87.6 m，Ø6.0→3.87 m</td><td>塔筒质量</td><td>347 t</td></tr>
+        <tr><td>发电机效率</td><td>94.4%</td><td>最大变桨速率</td><td>8 °/s</td></tr>
+      </table>
+
+      <h3>2. 三维模型：按图纸参数生成，而不是“画”出来</h3>
+      <ul>
+        <li><b>叶片放样</b>：按报告 Table 2-1 的 17 个站位（弦长、扭角、翼型）做单调三次插值，每个截面生成真实翼型轮廓（叶根 Ø3.54 m 圆 → DU40/35/30/25/21 → NACA64-618），再沿展向连成曲面。叶肩（最大弦长 4.65 m）在 r = 15.85 m，扭角从 13.3° 渐变到 0°。</li>
+        <li><b>几何关系</b>：主轴上仰 5°、叶片锥角 2.5°、悬伸 5.019 m 都按原值建模，它们共同决定叶尖与塔筒的净距（静态约 10.6 m）。</li>
+        <li><b>塔筒</b>：锥形钢塔，分 3 段法兰连接；塔门、平台与 1.75 m 高的工作人员、检修车用于体会尺度。</li>
+        <li><b>机舱内部</b>：主轴与主轴承、一级行星 + 两级平行轴齿轮箱、高速轴制动器、联轴器、双馈发电机、变流器柜、升压变压器、偏航驱动、顶置冷却器、测风系统。勾选“剖视”可看到各部件以真实转速转动（高速轴约为主轴的 97 倍）。</li>
+      </ul>
+
+      <h3>3. 物理模型：每一个数字都是算出来的</h3>
+      <ul>
+        <li><b>气动：叶素动量理论（BEM）</b>。每个叶素同时满足动量守恒与翼型升阻力，含 Prandtl 叶尖/轮毂损失和 Buhl 高诱导修正，用 Ning (2014) 的残差法求解，保证任何工况都收敛。启动时预计算 λ×β 共 9 417 个工况的 Cp/Ct/Cq 表。</li>
+        <li><b>控制：DISCON 基准控制器逐行移植</b>。转速 0.25 Hz 低通滤波；区域 1.5/2/2.5/3 变速转矩控制（区域 2 用 T = k·ω² 追踪最佳叶尖速比）；增益调度 PI 变桨（桨距越大增益越小）；8°/s 变桨速率与 15 kN·m/s 转矩变化率限制。</li>
+        <li><b>动力学</b>：传动链转动惯量 4.38×10⁷ kg·m²；塔架一阶前后模态 0.324 Hz，推力按相对风速计算，自然产生气动阻尼；偏航、启停、急停状态机。</li>
+        <li><b>风况</b>：IEC 61400-1 正常湍流模型 + Kaimal 谱合成；对数律风切变与地表粗糙度挂钩；叶轮等效风速（REWS）按 v³ 面积加权；IEC 极端运行阵风（EOG）；空气密度由海拔、气温、湿度计算。</li>
+      </ul>
+      <p>校核（运行 <code>node tests/validate.mjs</code>）：最大 Cp 0.478（文献 0.482），最佳 λ 7.5（7.55），额定风速 11.36 m/s（11.4），额定低速轴转矩 4.18 MN·m（4.18），25 m/s 桨距 23.1°（≈23.5°）。额定推力 704 kN，比文献约 800 kN 低 12%，原因是这里用参数化极曲线近似了 DU 翼型的风洞数据。</p>
+
+      <h3>4. 大型风机的工程难点（在场景里都能看到）</h3>
+      <ol>
+        <li><b>风功率与风速的三次方关系</b>：风速从 8 升到 11.4 m/s，功率从 1.76 MW 涨到 5 MW。额定以上必须变桨“弃风”，否则叶轮超速。在“Cp–λ 曲线族”里可以看到控制器怎样沿曲线族往下走。</li>
+        <li><b>风切变造成的 1P 交变载荷</b>：叶尖上缘 153 m 与下缘 27 m 的风速相差约 20–30%，叶片每转一圈挥舞弯矩都要波动一次。风廓线箭头和“时序曲线”里的挥舞弯矩可以对照着看。</li>
+        <li><b>重力疲劳</b>：17.7 t 的叶片每转一圈，重力摆振弯矩在 ±3.6 MN·m 之间反向一次，比气动扭矩的份额（约 1.4 MN·m）还大。20 年运行约 10⁸ 次循环，这决定了叶根铺层和螺栓的设计。</li>
+        <li><b>叶尖—塔筒净距</b>：额定推力下叶尖向下风向变形约 5 m，静态净距只有约 10.6 m。仰角、锥角、悬伸三个几何参数都是为这项约束设置的。</li>
+        <li><b>避开结构共振（坎贝尔图）</b>：塔架频率 0.324 Hz 必须落在 1P（最高 0.20 Hz）和 3P（最低 0.35 Hz）之间，也就是“软-硬塔”设计。3P 穿过塔架频率的转速是 6.5 rpm，低于最低运行转速 6.9 rpm，这就是 6.9 rpm 的来历之一。</li>
+        <li><b>低频高扭矩传动</b>：主轴 12.1 rpm 却要传递 4.18 MN·m，需要 97:1 齿轮箱把转速提到 1174 rpm 供发电机使用。齿轮箱是故障率最高的部件之一。</li>
+        <li><b>偏航慢、风向快</b>：机舱 240 t，偏航只有 0.3°/s，所以要对风向信号滤波并延时启动，否则偏航电机会疲于追逐湍流。代价是存在对风误差，功率大约按 cos³ 损失。</li>
+        <li><b>尾流</b>：下游 8D 处风速仍亏损 10–20%，整个风电场的年发电损失通常在 5–15%。“风电场尾流”标签页用 Jensen 模型逐台计算。</li>
+      </ol>
+
+      <h3>5. 设计亮点（它为什么能高效、安全地发电）</h3>
+      <ul>
+        <li><b>变速变桨</b>：额定以下用转矩控制追踪最佳叶尖速比，Cp 保持在 0.47–0.48，已接近贝兹极限 0.593 的 81%；额定以上由变桨把功率稳定在 5 MW。</li>
+        <li><b>扭角沿展向渐变</b>：叶根线速度小、入流角大，叶尖线速度大、入流角小。13.3°→0° 的扭角让各截面攻角都维持在最佳升阻比附近（见“叶片展向”中的绿色带）。</li>
+        <li><b>根厚尖薄</b>：叶根用 40% 厚度的钝尾缘翼型承受弯矩，叶尖用 18% 的高升阻比翼型发电，兼顾结构与气动。</li>
+        <li><b>冗余安全链</b>：三个叶片独立变桨，任意一片顺桨都能让叶轮减速；急停时再加上高速轴制动。可以点“紧急停机”看约 10 秒内停转的过程。</li>
+      </ul>
+
+      <h3>6. 与真实情况仍有的差距</h3>
+      <p>本模型是实时的工程级简化：叶片与塔架只取一阶模态、传动链按刚体处理；翼型为参数化极曲线；湍流按单点时间序列加叶轮平均滤波合成，没有使用三维湍流箱；尾流采用解析模型而不是 CFD。这些简化让它能在浏览器中以 50 Hz 运行，同时保证稳态性能指标与文献的偏差在几个百分点以内。</p>
     </div>
-  </section>
+  </div>
 
-  <!-- 左下：发电机原理可视化 -->
-  <section id="genPanel" class="panel">
-    <h2>🔌 发电机原理（机械能 → 电能）</h2>
-    <canvas id="genCanvas"></canvas>
-    <small class="gen-note">转子磁体随叶轮旋转 → 切割定子线圈磁场 →
-      <b>电磁感应</b>生出交流电 → 输往电网/家庭</small>
-  </section>
-
-  <!-- 状态角标 -->
-  <div id="status" class="status">初始化中…</div>
-
-  <!-- Three.js 通过 importmap 从 CDN 加载（ESM） -->
   <script type="importmap">
   {
     "imports": {

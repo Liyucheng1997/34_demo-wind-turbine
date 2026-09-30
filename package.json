@@ -1,0 +1,10 @@
+{
+  "name": "nrel5mw-wind-turbine-twin",
+  "private": true,
+  "type": "module",
+  "description": "NREL 5MW 参考风机 1:1 数字孪生（Three.js，静态站点，无需构建）",
+  "scripts": {
+    "serve": "python -m http.server 8123",
+    "validate": "node tests/validate.mjs"
+  }
+}
